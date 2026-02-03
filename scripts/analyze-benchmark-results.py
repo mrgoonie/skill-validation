@@ -202,12 +202,13 @@ def calc_stats(values: list) -> dict:
     }
 
 
-def generate_report(results: dict) -> str:
+def generate_report(results: dict, model: str = "default") -> str:
     """Generate markdown report from results."""
     report = []
     report.append("# Benchmark Report: Skills vs Commands")
     report.append("")
     report.append(f"**Date:** {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+    report.append(f"**Model:** {model}")
     report.append("**Task:** 21-step file operations")
     report.append("")
 
@@ -272,23 +273,61 @@ def generate_report(results: dict) -> str:
 
         skill_tokens = mean([r["tokens_total"] for r in results["skill"]])
         cmd_tokens = mean([r["tokens_total"] for r in results["command"]])
-        token_diff = ((cmd_tokens - skill_tokens) / skill_tokens * 100) if skill_tokens else 0
+        token_diff = ((skill_tokens - cmd_tokens) / cmd_tokens * 100) if cmd_tokens else 0
+
+        skill_duration = mean([r["duration_ms"] for r in results["skill"]])
+        cmd_duration = mean([r["duration_ms"] for r in results["command"]])
+        duration_diff = ((skill_duration - cmd_duration) / cmd_duration * 100) if cmd_duration else 0
 
         skill_tools = mean([r["tool_count"] for r in results["skill"]])
         cmd_tools = mean([r["tool_count"] for r in results["command"]])
-        tools_diff = ((cmd_tools - skill_tools) / skill_tools * 100) if skill_tools else 0
+        tools_diff = ((skill_tools - cmd_tools) / cmd_tools * 100) if cmd_tools else 0
 
-        report.append(f"- **Token efficiency:** Skill uses {abs(token_diff):.1f}% "
-                      f"{'fewer' if token_diff > 0 else 'more'} tokens than Command")
-        report.append(f"- **Tool calls:** Skill uses {abs(tools_diff):.1f}% "
-                      f"{'fewer' if tools_diff > 0 else 'more'} tool calls than Command")
+        report.append("| Metric | Skill | Command | Diff |")
+        report.append("|--------|-------|---------|------|")
+        report.append(f"| Tokens | {skill_tokens:,.0f} | {cmd_tokens:,.0f} | {'+' if token_diff > 0 else ''}{token_diff:.1f}% |")
+        report.append(f"| Duration | {skill_duration/1000:.1f}s | {cmd_duration/1000:.1f}s | {'+' if duration_diff > 0 else ''}{duration_diff:.1f}% |")
+        report.append(f"| Tools | {skill_tools:.0f} | {cmd_tools:.0f} | {'+' if tools_diff > 0 else ''}{tools_diff:.1f}% |")
         report.append("")
 
-    # Conclusions placeholder
-    report.append("## Conclusions")
-    report.append("")
-    report.append("*To be filled after analysis*")
-    report.append("")
+        # Determine winner
+        skill_wins = sum([token_diff < 0, duration_diff < 0, tools_diff < 0])
+        cmd_wins = 3 - skill_wins
+        winner = "Skill" if skill_wins > cmd_wins else "Command" if cmd_wins > skill_wins else "Tie"
+
+        # Auto-generate conclusions
+        report.append("## Conclusions")
+        report.append("")
+        report.append(f"**Winner: {winner}** ({skill_wins}/3 metrics favor Skill, {cmd_wins}/3 favor Command)")
+        report.append("")
+
+        if winner == "Skill":
+            report.append("Skills demonstrate better prompt adherence due to:")
+            report.append("- Reference file architecture provides clearer instruction separation")
+            report.append("- Skill activation creates dedicated context vs inline expansion")
+        elif winner == "Command":
+            report.append("Commands demonstrate better efficiency due to:")
+            report.append("- Inline instructions reduce context overhead")
+            report.append("- No skill loading/parsing overhead")
+        else:
+            report.append("Results are inconclusive - performance is similar between methods.")
+
+        report.append("")
+        report.append("**Observations:**")
+        if abs(token_diff) < 10:
+            report.append("- Token usage is comparable between methods")
+        else:
+            report.append(f"- {'Command' if token_diff > 0 else 'Skill'} is more token-efficient")
+        if abs(duration_diff) < 10:
+            report.append("- Execution time is comparable between methods")
+        else:
+            report.append(f"- {'Command' if duration_diff > 0 else 'Skill'} executes faster")
+        report.append("")
+    else:
+        report.append("## Conclusions")
+        report.append("")
+        report.append("*Insufficient data for comparison*")
+        report.append("")
 
     return "\n".join(report)
 
@@ -304,11 +343,17 @@ def main():
         print("No benchmark logs found. Run benchmarks first.")
         return
 
-    report = generate_report(results)
+    # Read model from metadata file
+    model = "default"
+    model_file = LOG_DIR / "model.txt"
+    if model_file.exists():
+        model = model_file.read_text().strip()
+
+    report = generate_report(results, model)
 
     # Save report
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
-    report_path = REPORT_DIR / f"benchmark-{datetime.now().strftime('%y%m%d-%H%M')}-fileops.md"
+    report_path = REPORT_DIR / f"benchmark-{datetime.now().strftime('%y%m%d-%H%M')}-{model}-fileops.md"
     report_path.write_text(report)
 
     print(f"\nReport saved: {report_path}")

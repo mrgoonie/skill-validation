@@ -41,6 +41,9 @@ echo ""
 rm -rf "$LOG_DIR"
 mkdir -p "$LOG_DIR"
 
+# Save model name for analysis
+echo "${MODEL:-default}" > "$LOG_DIR/model.txt"
+
 run_skill() {
     local run_num=$1
     local workspace="$WORKSPACE_BASE-skill-$run_num"
