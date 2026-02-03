@@ -8,6 +8,7 @@ Experimental framework for comparing **Skill** vs **Slash Command** prompt adher
 |-----------|-----------|--------|-------------|
 | [File Ops](#benchmark-1-file-operations) | 21-step deterministic | **Command** | Commands excel at simple, deterministic tasks |
 | [Orchestration](#benchmark-2-orchestration) | 4-phase multi-agent | **Skill** | Skills excel with advanced models (Sonnet/Opus) |
+| [Context Engineering](#benchmark-3-context-engineering) | 5-task knowledge | **Monolithic** | 90% accuracy with 44% fewer tokens than modular |
 
 ## Benchmark 1: File Operations
 
@@ -64,6 +65,47 @@ Experimental framework for comparing **Skill** vs **Slash Command** prompt adher
 
 # Analyze results
 ~/.claude/skills/.venv/bin/python3 scripts/analyze-orchestration-benchmark-code-auto-vs-cook-auto.py
+```
+
+---
+
+## Benchmark 3: Context Engineering
+
+**Task:** 5 context engineering questions (degradation, multi-agent, optimization, memory, evaluation)
+
+**Comparison:** `ck-context-engineering` (monolithic) vs `Agent-Skills-for-Context-Engineering` (modular - 13 skills)
+
+### Results (3-run average)
+
+| Method | Accuracy | Tokens | Cost | Architecture |
+|--------|----------|--------|------|--------------|
+| **Monolithic** | **90.0%** | **~600K** | **$0.58** | Single skill |
+| Modular | 96.7% | ~1,066K | $0.89 | 13 separate skills |
+
+**Winner: Monolithic** - 90% accuracy with 44% fewer tokens, 35% lower cost.
+
+### Per-Task Accuracy
+
+| Task | Monolithic | Modular |
+|------|-----------|---------|
+| context-degradation | 83% | 100% |
+| multi-agent-design | **94%** | 100% |
+| token-optimization | 78% | 83% |
+| memory-systems | 100% | 100% |
+| evaluation | 94% | 100% |
+
+### Key Finding
+
+Added "Key Concepts Index" to SKILL.md improved multi-agent task from 67% → 94%.
+
+### Scripts
+
+```bash
+# Run benchmark
+./scripts/run-context-engineering-skill-benchmark.sh sonnet all
+
+# Analyze results
+~/.claude/skills/.venv/bin/python3 scripts/analyze-context-engineering-skill-benchmark.py
 ```
 
 ---
